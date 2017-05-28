@@ -1,6 +1,8 @@
+import threading
 import numpy as np
 import cv2
-
+import time
+import multiprocessing
 def clean_errors(image,operation, iteration):
 	tam = image.shape
 	# erode
@@ -43,6 +45,21 @@ def clean_errors(image,operation, iteration):
 				image[i][j] = variable	
 	return image
 
+def frame_worker(frame, cont): 
+	gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)		
+	difference =  abs(gray - promedio)
+	ther = 15
+	max_value = 255
+	print "Estoy en el hilo" + str(cont)
+	print "procesando frame" + str(cont)
+	th, dst = cv2.threshold(difference,ther, max_value, cv2.THRESH_BINARY);
+	#print "Estoy imprimiendo la info de un hilos"
+	
+
+	erode_frame = clean_errors(dst, 1, 2)
+	cv2.imshow('frame', erode_frame)
+	print "termine de procesar frame" + str(cont)
+	#delating_frame = clean_errors(dst, 2, 2)
 
 print "Inicializando programa"
 file_name = 'video3.mov'
@@ -67,25 +84,44 @@ promedio = (acum + error_prom)/ frames_average
 cap2 = cv2.VideoCapture(file_name,0)
 error = 0
 print "Procesando output video"
-cont = 0
+cont = 1
+hilos = 2
+frames = []
+threads = []
 while (cap2.isOpened()):
+
 	ret,frame = cap2.read()
 	
 	if (ret==True):
-		frame = frame - error
-		cont = cont + 1
 		print cont
-		gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)		
-		difference =  abs(gray - promedio)
-		ther = 15
-		max_value = 255
-		
-		th, dst = cv2.threshold(difference,ther, max_value, cv2.THRESH_BINARY);
-		#erode_frame = clean_errors(dst, 1, 2)
-		#delating_frame = clean_errors(dst, 2, 2)
-		out.write(dst)
+		frames.append(frame) 
+		cont = cont + 1
+		#out.write(dst)
 	else:
 		break
+	if (cont > hilos):
+		print "inicializando threads"
+		cont2 = 0
+		for frame in frames:
+			print 'add thread'
+			t = threading.Thread(target=frame_worker, args=(frame,cont2,))
+			threads.append(t)
+			cont2 = cont2 + 1
+		for thread in threads:
+			print "Empiezo thread"
+			thread.start()
+			#print "Entro a esperar"
+			#thread.join()
+
+		for thread in threads:
+			#print "Empiezo thread"
+			print "Entro a esperar"
+			thread.join()
+		cont = 0
+		frames = []
+		threads = []
+
+print "Empezando procesamiento multihilos"
 print "Programa terminado"
 cap.release()
 cap2.release()
