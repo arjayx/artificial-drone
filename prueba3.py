@@ -3,6 +3,11 @@ import numpy as np
 import cv2
 import time
 import multiprocessing
+from multiprocessing import Manager
+import collections
+import datetime
+out = cv2.VideoWriter('output_video1.avi', -1, 20, (1280,720))
+
 def clean_errors(image,operation, iteration):
 	tam = image.shape
 	# erode
@@ -45,84 +50,111 @@ def clean_errors(image,operation, iteration):
 				image[i][j] = variable	
 	return image
 
-def frame_worker(frame, cont): 
+def frame_worker(frame, promedio, d, cont):
 	gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)		
 	difference =  abs(gray - promedio)
-	ther = 15
+	ther = 10
 	max_value = 255
 	print "Estoy en el hilo" + str(cont)
 	print "procesando frame" + str(cont)
 	th, dst = cv2.threshold(difference,ther, max_value, cv2.THRESH_BINARY);
 	#print "Estoy imprimiendo la info de un hilos"
+	#return_dict[pos] = return_dict
+	#send_end.send(dst)
+	erode_frame = clean_errors(dst, 1, 1)
+	delating_frame = clean_errors(erode_frame, 2, 2)
+	#cv2.imshow('frame', erode_frame)
+	#queue.put(dst)
 	
-
-	erode_frame = clean_errors(dst, 1, 2)
-	cv2.imshow('frame', erode_frame)
+	#l.append(delating_frame)
+	d[cont] = delating_frame
 	print "termine de procesar frame" + str(cont)
+
+	#print erode_frame
 	#delating_frame = clean_errors(dst, 2, 2)
+valores = []
+if __name__ == '__main__':
+	print "Inicializando programa"
+	file_name = 'video1.mov'
+	cap = cv2.VideoCapture(file_name,0)
+	frames = []
+	i = 1
+	acum = np.zeros((720, 1280))
+	frames_average = 500
+	#out = cv2.VideoWriter('output13.avi', -1, 20, (1280,720))
+	ret = True
+	while(cap.isOpened() and i <=frames_average and ret == True):
+		ret,frame = cap.read()
+		gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+		if (ret==True):
+			acum = acum + gray
+			i = i + 1
+		else:
+			break
+	error_prom = -10
+	i = frames_average
+	promediop = (acum + error_prom)/ frames_average
+	cap2 = cv2.VideoCapture(file_name,0)
+	error = 0
+	print "Procesando output video"
+	cont = 1
+	hilos = 20
+	num_frames = 0
+	frames = []
+	threads = []
+	while (cap2.isOpened()):
 
-print "Inicializando programa"
-file_name = 'video3.mov'
-cap = cv2.VideoCapture(file_name,0)
-frames = []
-i = 1
-acum = np.zeros((720, 1280))
-frames_average = 500
-out = cv2.VideoWriter('output12.avi', -1, 20, (1280,720))
-ret = True
-while(cap.isOpened() and i <=frames_average and ret == True):
-	ret,frame = cap.read()
-	gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-	if (ret==True):
-		acum = acum + gray
-		i = i + 1
-	else:
-		break
-error_prom = -20
-i = frames_average
-promedio = (acum + error_prom)/ frames_average
-cap2 = cv2.VideoCapture(file_name,0)
-error = 0
-print "Procesando output video"
-cont = 1
-hilos = 2
-frames = []
-threads = []
-while (cap2.isOpened()):
+		ret, frame = cap2.read()
 
-	ret,frame = cap2.read()
+		if (ret==True):
+			num_frames = num_frames + 1
+			print num_frames
+			#print cont
+			frames.append(frame) 
+			cont = cont + 1
+			#out.write(dst)
+		else:
+			break
+		if (cont > hilos):
+			#print "inicializando threads"
+			cont2 = 0
+			result = []
+
+			with Manager() as manager:
+				d = manager.dict()
+				for frame in frames:
+					#print 'add thread'
+					#recv_end, send_end = multiprocessing.Pipe(False)
+					t = multiprocessing.Process(target=frame_worker, args=(frame, promediop, d, cont2))
+					threads.append(t)
+					#result.append(recv_end)
+					cont2 = cont2 + 1
+				
+				for thread in threads:
+					#print "Empiezo thread"
+					thread.start()
+					#print "Entro a esperar"
+					#thread.join()
+
+				for thread in threads:
+					#print "Empiezo thread"
+					#print "Entro a esperar"
+					thread.join()
+				#print queue
+				 
+				print "Imagenes procesadas"
+				od = collections.OrderedDict(sorted(d.items()))
+				for key in od:
+					fp = od[key]
+					out.write(fp)
+				#print result[l]
+				#out.write(result[l])
+			cont = 0
+			frames = []
+			threads = []
+
 	
-	if (ret==True):
-		print cont
-		frames.append(frame) 
-		cont = cont + 1
-		#out.write(dst)
-	else:
-		break
-	if (cont > hilos):
-		print "inicializando threads"
-		cont2 = 0
-		for frame in frames:
-			print 'add thread'
-			t = threading.Thread(target=frame_worker, args=(frame,cont2,))
-			threads.append(t)
-			cont2 = cont2 + 1
-		for thread in threads:
-			print "Empiezo thread"
-			thread.start()
-			#print "Entro a esperar"
-			#thread.join()
-
-		for thread in threads:
-			#print "Empiezo thread"
-			print "Entro a esperar"
-			thread.join()
-		cont = 0
-		frames = []
-		threads = []
-
-print "Empezando procesamiento multihilos"
-print "Programa terminado"
-cap.release()
-cap2.release()
-cv2.destroyAllWindows()
+	print "Programa terminado"
+	cap.release()
+	cap2.release()
+	cv2.destroyAllWindows()
