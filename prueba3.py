@@ -6,7 +6,9 @@ import multiprocessing
 from multiprocessing import Manager
 import collections
 import datetime
-out = cv2.VideoWriter('output_video1.avi', -1, 20, (1280,720))
+
+
+out = cv2.VideoWriter('output_video_median3.avi', -1, 20, (1280,720))
 
 def clean_errors(image,operation, iteration):
 	tam = image.shape
@@ -24,7 +26,7 @@ def clean_errors(image,operation, iteration):
 		for j in range(0, tam[1]):
 			if(image[i][j] == center):
 				if (i>0 and image[i-1][j]==status): 
-					for k in range(1, iteration):			
+					for k in range(1, iteration):           
 						if(i-k > 0):
 							image[i-k][j] = 2
 				
@@ -47,24 +49,24 @@ def clean_errors(image,operation, iteration):
 	for i in range(0, tam[0]):
 		for j in range(0, tam[1]):
 			if(image[i][j] == 2):
-				image[i][j] = variable	
+				image[i][j] = variable  
 	return image
 
+
 def frame_worker(frame, promedio, d, cont):
-	gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)		
-	difference =  abs(gray - promedio)
-	ther = 10
+	
+	gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)      
+	gray = cv2.GaussianBlur(gray, (7,7), 0)
+	difference =  abs(gray - promedio) - 10 
+	ther = 4
 	max_value = 255
 	print "Estoy en el hilo" + str(cont)
 	print "procesando frame" + str(cont)
 	th, dst = cv2.threshold(difference,ther, max_value, cv2.THRESH_BINARY);
-	#print "Estoy imprimiendo la info de un hilos"
-	#return_dict[pos] = return_dict
-	#send_end.send(dst)
-	erode_frame = clean_errors(dst, 1, 1)
-	delating_frame = clean_errors(erode_frame, 2, 2)
-	#cv2.imshow('frame', erode_frame)
-	#queue.put(dst)
+	#th, dst = cv2.threshold(median_blue,ther, max_value, cv2.THRESH_BINARY);
+	#erode_frame = clean_errors(dst, 1, 1)
+	delating_frame = clean_errors(dst, 2, 4)
+	erode_frame = clean_errors(delating_frame, 1, 2)
 	
 	#l.append(delating_frame)
 	d[cont] = delating_frame
@@ -72,15 +74,19 @@ def frame_worker(frame, promedio, d, cont):
 
 	#print erode_frame
 	#delating_frame = clean_errors(dst, 2, 2)
-valores = []
+
+
+
+
+
 if __name__ == '__main__':
 	print "Inicializando programa"
-	file_name = 'video1.mov'
+	file_name = 'video3.mov'
 	cap = cv2.VideoCapture(file_name,0)
 	frames = []
 	i = 1
 	acum = np.zeros((720, 1280))
-	frames_average = 500
+	frames_average = 800
 	#out = cv2.VideoWriter('output13.avi', -1, 20, (1280,720))
 	ret = True
 	while(cap.isOpened() and i <=frames_average and ret == True):
@@ -91,14 +97,14 @@ if __name__ == '__main__':
 			i = i + 1
 		else:
 			break
-	error_prom = -10
+	error_prom = 0
 	i = frames_average
 	promediop = (acum + error_prom)/ frames_average
 	cap2 = cv2.VideoCapture(file_name,0)
 	error = 0
 	print "Procesando output video"
 	cont = 1
-	hilos = 20
+	hilos = 4
 	num_frames = 0
 	frames = []
 	threads = []
