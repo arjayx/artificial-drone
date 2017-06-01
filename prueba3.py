@@ -10,6 +10,58 @@ import datetime
 
 out = cv2.VideoWriter('output_video_median3.avi', -1, 20, (1280,720))
 
+
+def proccsing_square(frame):
+	tam = frame.shape
+	#print tam[0]
+	#square_image 
+	num_pixels = 40
+	i = 1
+	while (i < tam[0]):
+		j = 1
+		while (j < tam[1]):
+			#print "Esta es mi coordenadas" + str(i) + ", " + str(j)
+			#print frame[i][j]
+			if(frame[i][j] == 255):
+				#print frame[i][j]
+				#print "Esta es mi coordenadas" + str(i) + ", " + str(j)
+				c1 = j
+				c2 = i
+				itera = 1
+				status = True
+				# reviso los pixeles de forma  horizontal
+				
+				while(itera < num_pixels):
+					#print "entro en este qhile"
+					if (c1 + itera < tam[1] and (c1 - itera > 0)):
+						
+						if(frame[i][c1 + itera] != 255 and frame[i][c1 - itera] != 255 ):
+							#print "entro en esta condicion"
+							status = False
+					itera = itera + 1
+				#print " numero de iteraciones terminadas" + str(itera)
+				itera = 1
+				if (status == True):
+					# reviso los pixeles de forma vertical
+					#print "Encontre un candidato" + str(i) + ", " + str(j)
+					while(itera < num_pixels):
+
+						if ( c2 + itera < tam[0] and (c2 - itera > 0)):
+							if (frame[c2 + itera][j] != 255 and frame[c2 - itera][j] != 255):
+								status = False
+						itera = itera + 1
+					
+				# reviso que el pixel pase la prueba
+				if (status == True):
+					#square_image[i][j] = 2
+					#print "encontre un centroide" + str(i) + ", " + str(j)
+					cv2.circle(frame,(j, i), 30, 255, 0)
+					#cv2.imwrite("centroide.jpg", frame2)
+			j = j + 1
+		i = i + 1
+	return frame
+
+
 def clean_errors(image,operation, iteration):
 	tam = image.shape
 	# erode
@@ -57,19 +109,19 @@ def frame_worker(frame, promedio, d, cont):
 	
 	gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)      
 	gray = cv2.GaussianBlur(gray, (7,7), 0)
-	difference =  abs(gray - promedio) - 10 
-	ther = 4
+	difference =  abs(gray - promedio) - 12 
+	ther = 2
 	max_value = 255
 	print "Estoy en el hilo" + str(cont)
 	print "procesando frame" + str(cont)
 	th, dst = cv2.threshold(difference,ther, max_value, cv2.THRESH_BINARY);
 	#th, dst = cv2.threshold(median_blue,ther, max_value, cv2.THRESH_BINARY);
 	#erode_frame = clean_errors(dst, 1, 1)
-	delating_frame = clean_errors(dst, 2, 4)
-	erode_frame = clean_errors(delating_frame, 1, 2)
-	
+	#delating_frame = clean_errors(dst, 2, 4)
+	#erode_frame = clean_errors(delating_frame, 1, 2)
+	circles_frame = proccsing_square(dst)
 	#l.append(delating_frame)
-	d[cont] = delating_frame
+	d[cont] = dst
 	print "termine de procesar frame" + str(cont)
 
 	#print erode_frame
@@ -81,7 +133,7 @@ def frame_worker(frame, promedio, d, cont):
 
 if __name__ == '__main__':
 	print "Inicializando programa"
-	file_name = 'video3.mov'
+	file_name = 'video1.mov'
 	cap = cv2.VideoCapture(file_name,0)
 	frames = []
 	i = 1
@@ -104,7 +156,7 @@ if __name__ == '__main__':
 	error = 0
 	print "Procesando output video"
 	cont = 1
-	hilos = 4
+	hilos = 5
 	num_frames = 0
 	frames = []
 	threads = []
